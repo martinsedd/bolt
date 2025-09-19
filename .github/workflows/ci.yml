@@ -38,7 +38,7 @@ jobs:
       - name: Cache cargo registry
         uses: actions/cache@v3
         with:
-          path: ~/.cargo/registry/
+          path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Cache cargo index
