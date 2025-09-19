@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/bolt-lexer",
+  "crates/bolt-parser",
+  "crates/bolt-ast",
+  "crates/bolt-types",
+  "crates/bolt-codegen",
+  "crates/bolt-cli",
+]
+
+[workspace.dependencies]
+# Parsing
+nom = "8.0"
+# LLVM
+inkwell = { version = "0.6", features = ["llvm18-1"] }
+# CLI
+clap = "4.5.47"
+# Utilities
+anyhow = "1.0.99"
+thiserror = "2.0.16"
+serde = "1.0.225"
+
+[profile.dev]
+debug = true
+incremental = true
+
+[profile.release]
+lto = true
+codegen-units = 1

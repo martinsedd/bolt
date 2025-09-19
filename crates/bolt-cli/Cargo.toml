@@ -1,0 +1,17 @@
+[package]
+name = "bolt"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "bolt"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+anyhow.workspace = true
+bolt-lexer = { path = "../bolt-lexer" }
+bolt-parser = { path = "../bolt-parser" }
+bolt-ast = { path = "../bolt-ast" }
+bolt-types = { path = "../bolt-types" }
+bolt-codegen = { path = "../bolt-codegen" }
