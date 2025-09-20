@@ -19,7 +19,7 @@ clap = "4.5.47"
 # Utilities
 anyhow = "1.0.99"
 thiserror = "2.0.16"
-serde = "1.0.225"
+serde = { version = "1.0.225", features = ["derive"] }
 
 [profile.dev]
 debug = true
