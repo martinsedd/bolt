@@ -1,4 +1,4 @@
-use crate::position::{Position, Span};
+use crate::position::Span;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -279,6 +279,7 @@ pub fn keyword_from_str(s: &str) -> Option<TokenType> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::position::Position;
 
     #[test]
     fn test_keyword_recognition() {

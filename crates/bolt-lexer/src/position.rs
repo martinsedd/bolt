@@ -35,7 +35,7 @@ impl Default for Position {
 }
 
 /// Represents a span in the source code
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Span {
     pub start: Position,
     pub end: Position,

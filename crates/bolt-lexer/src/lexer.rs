@@ -1,4 +1,6 @@
-use crate::{LexError, Position, Span, Token, TokenType, keyword_from_str};
+use crate::error::LexError;
+use crate::position::{Position, Span};
+use crate::token::{Token, TokenType, keyword_from_str};
 
 /// The main lexer struct
 pub struct Lexer {
@@ -557,4 +559,3 @@ end
         assert!(matches!(tokens.last().unwrap().token_type, TokenType::Eof));
     }
 }
-
