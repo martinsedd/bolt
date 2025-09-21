@@ -6,9 +6,9 @@
 mod expr;
 mod stmt;
 mod types;
+mod visitor;
 // Placeholder modules for future implementation
 // mod decl;
-// mod visitor;
 // mod display;
 
 // Re-export public API
@@ -22,10 +22,10 @@ pub use stmt::{
     Visibility,
 };
 pub use types::{GenericParam, TraitBound, Type, TypeAnnotation};
+pub use visitor::{Visitor, VisitorMut, walk_expr, walk_pattern, walk_stmt, walk_type};
 
 // Future re-exports:
 // pub use decl::*;
-// pub use visitor::*;
 // pub use display::*;
 
 // Future re-
@@ -49,5 +49,10 @@ mod tests {
         // Test statement creation
         let visibility = Visibility::Public;
         assert!(visibility.is_public());
+
+        // Test visitor traits are available;
+        struct DummyVisitor;
+        impl Visitor for DummyVisitor {}
+        let mut _visitor = DummyVisitor;
     }
 }
