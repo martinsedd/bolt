@@ -147,14 +147,6 @@ impl Parser {
 
         Ok(statements)
     }
-
-    /// BUG:Parse a single statement
-    pub fn parse_statement(&mut self) -> ParseResult<Stmt> {
-        // This will delegate to the stmt parser module
-        // For now, return a placeholder
-        todo!("Statement parsing will be implemented in stmt.rs")
-    }
-
     // Token stream management methods
 
     /// Check if we're at the end of the token stream
