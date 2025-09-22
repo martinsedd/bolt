@@ -61,6 +61,8 @@ pub enum TokenType {
     SlashEqual, // /=
     TildeEqual, // ~= (concat)
     Equal,      // =
+    Less,       // <
+    Greater,    // >
 
     // Comparison (methods)
     Dot,      // .
@@ -81,10 +83,11 @@ pub enum TokenType {
     RightBrace,   // }
 
     // Punctuation
-    Colon,     // :
-    Semicolon, // ;
-    Comma,     // ,
-    Arrow,     // =>
+    Colon,         // :
+    Semicolon,     // ;
+    Comma,         // ,
+    Arrow,         // =>
+    FunctionArrow, // ->
 
     // Special symbols
     Dollar,       // $
@@ -231,6 +234,9 @@ impl fmt::Display for TokenType {
             TokenType::InterpolationEnd => write!(f, "}}"),
             TokenType::InterpolatedText(text) => write!(f, "{}", text),
             TokenType::Equal => write!(f, "="),
+            TokenType::Less => write!(f, "<"),
+            TokenType::Greater => write!(f, ">"),
+            TokenType::FunctionArrow => write!(f, "->"),
         }
     }
 }

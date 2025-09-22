@@ -1,5 +1,5 @@
 use crate::error::{ParseError, ParseResult};
-use bolt_ast::{Expr, Stmt, Type};
+use bolt_ast::{Expr, Stmt};
 use bolt_lexer::{Position, Span, Token, TokenType};
 use std::sync::LazyLock;
 
@@ -160,13 +160,6 @@ impl Parser {
         // This will delegate to the expr parser module
         // For now, return a placeholder
         todo!("Expression parsing will be implemented in expr.rs")
-    }
-
-    /// Parse a type annotation
-    pub fn parse_type(&mut self) -> ParseResult<Type> {
-        // This will delegate to the types parser module
-        // For now, return a placeholder
-        todo!("Type parsing will be implemented in types.rs")
     }
 
     // Token stream management methods

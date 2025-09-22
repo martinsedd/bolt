@@ -199,6 +199,15 @@ pub struct DetailedError {
 }
 
 impl ParseError {
+    /// Create an invalid visibility error
+    pub fn invalid_visibility(message: &str, span: Span) -> Self {
+        Self::InvalidVisibility {
+            message: message.to_string(),
+            span,
+            line: span.start.line,
+            column: span.start.column,
+        }
+    }
     /// Create an unexpected token error
     pub fn unexpected_token(token: &Token, expected: Vec<TokenType>) -> Self {
         Self::UnexpectedToken {
