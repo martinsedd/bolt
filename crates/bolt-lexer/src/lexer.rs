@@ -124,11 +124,7 @@ impl Lexer {
                 if self.match_char('>') {
                     Ok(self.make_token(TokenType::Arrow, start_pos))
                 } else {
-                    Err(LexError::UnexpectedCharacter(
-                        ch,
-                        start_pos.line,
-                        start_pos.column,
-                    ))
+                    Ok(self.make_token(TokenType::Equal, start_pos))
                 }
             }
             ':' => {

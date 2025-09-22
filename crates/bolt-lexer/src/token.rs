@@ -60,6 +60,7 @@ pub enum TokenType {
     StarEqual,  // *=
     SlashEqual, // /=
     TildeEqual, // ~= (concat)
+    Equal,      // =
 
     // Comparison (methods)
     Dot,      // .
@@ -229,6 +230,7 @@ impl fmt::Display for TokenType {
             TokenType::InterpolationStart => write!(f, "{{"),
             TokenType::InterpolationEnd => write!(f, "}}"),
             TokenType::InterpolatedText(text) => write!(f, "{}", text),
+            TokenType::Equal => write!(f, "="),
         }
     }
 }
