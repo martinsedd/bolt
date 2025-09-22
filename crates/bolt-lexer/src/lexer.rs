@@ -71,6 +71,8 @@ impl Lexer {
             '$' => Ok(self.make_token(TokenType::Dollar, start_pos)),
             '%' => Ok(self.make_token(TokenType::Percent, start_pos)),
             '^' => Ok(self.make_token(TokenType::Caret, start_pos)),
+            '<' => Ok(self.make_token(TokenType::Less, start_pos)),
+            '>' => Ok(self.make_token(TokenType::Greater, start_pos)),
 
             // Potentially multi-character tokens
             '+' => {
@@ -87,6 +89,8 @@ impl Lexer {
                     Ok(self.make_token(TokenType::MinusEqual, start_pos))
                 } else if self.match_char('-') {
                     Ok(self.make_token(TokenType::MinusMinus, start_pos))
+                } else if self.match_char('>') {
+                    Ok(self.make_token(TokenType::FunctionArrow, start_pos))
                 } else {
                     Ok(self.make_token(TokenType::Minus, start_pos))
                 }
@@ -124,11 +128,7 @@ impl Lexer {
                 if self.match_char('>') {
                     Ok(self.make_token(TokenType::Arrow, start_pos))
                 } else {
-                    Err(LexError::UnexpectedCharacter(
-                        ch,
-                        start_pos.line,
-                        start_pos.column,
-                    ))
+                    Ok(self.make_token(TokenType::Equal, start_pos))
                 }
             }
             ':' => {

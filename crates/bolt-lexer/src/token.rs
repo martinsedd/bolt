@@ -45,6 +45,9 @@ pub enum TokenType {
     Protected,
     Internal,
     End,
+    Init,
+    Break,
+    Continue,
 
     // Operators
     Plus,       // +
@@ -60,6 +63,9 @@ pub enum TokenType {
     StarEqual,  // *=
     SlashEqual, // /=
     TildeEqual, // ~= (concat)
+    Equal,      // =
+    Less,       // <
+    Greater,    // >
 
     // Comparison (methods)
     Dot,      // .
@@ -80,10 +86,11 @@ pub enum TokenType {
     RightBrace,   // }
 
     // Punctuation
-    Colon,     // :
-    Semicolon, // ;
-    Comma,     // ,
-    Arrow,     // =>
+    Colon,         // :
+    Semicolon,     // ;
+    Comma,         // ,
+    Arrow,         // =>
+    FunctionArrow, // ->
 
     // Special symbols
     Dollar,       // $
@@ -229,6 +236,13 @@ impl fmt::Display for TokenType {
             TokenType::InterpolationStart => write!(f, "{{"),
             TokenType::InterpolationEnd => write!(f, "}}"),
             TokenType::InterpolatedText(text) => write!(f, "{}", text),
+            TokenType::Equal => write!(f, "="),
+            TokenType::Less => write!(f, "<"),
+            TokenType::Greater => write!(f, ">"),
+            TokenType::FunctionArrow => write!(f, "->"),
+            TokenType::Init => write!(f, "init"),
+            TokenType::Break => write!(f, "break"),
+            TokenType::Continue => write!(f, "continue"),
         }
     }
 }
@@ -272,6 +286,9 @@ pub fn keyword_from_str(s: &str) -> Option<TokenType> {
         "not" => Some(TokenType::Not),
         "true" => Some(TokenType::Boolean(true)),
         "false" => Some(TokenType::Boolean(false)),
+        "init" => Some(TokenType::Init),
+        "break" => Some(TokenType::Break),
+        "continue" => Some(TokenType::Continue),
         _ => None,
     }
 }

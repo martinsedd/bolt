@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 nom.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 bolt-lexer = { path = "../bolt-lexer" }
 bolt-ast = { path = "../bolt-ast" }
