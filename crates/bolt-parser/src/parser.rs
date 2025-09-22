@@ -1,5 +1,5 @@
 use crate::error::{ParseError, ParseResult};
-use bolt_ast::{Expr, Stmt};
+use bolt_ast::Stmt;
 use bolt_lexer::{Position, Span, Token, TokenType};
 use std::sync::LazyLock;
 
@@ -148,18 +148,11 @@ impl Parser {
         Ok(statements)
     }
 
-    /// Parse a single statement
+    /// BUG:Parse a single statement
     pub fn parse_statement(&mut self) -> ParseResult<Stmt> {
         // This will delegate to the stmt parser module
         // For now, return a placeholder
         todo!("Statement parsing will be implemented in stmt.rs")
-    }
-
-    /// Parse a single expression
-    pub fn parse_expression(&mut self) -> ParseResult<Expr> {
-        // This will delegate to the expr parser module
-        // For now, return a placeholder
-        todo!("Expression parsing will be implemented in expr.rs")
     }
 
     // Token stream management methods
