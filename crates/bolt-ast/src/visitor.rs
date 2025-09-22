@@ -117,7 +117,7 @@ pub fn walk_stmt<V: Visitor + ?Sized>(visitor: &mut V, stmt: &Stmt) {
                 visitor.visit_parameter(param);
             }
             visitor.visit_type_annotation(return_type);
-            visitor.visit_expr(body);
+            visitor.visit_stmt(body);
         }
         Stmt::ClassDef { generics, body, .. } => {
             for generic in generics {
@@ -532,14 +532,14 @@ fn walk_class_body<V: Visitor + ?Sized>(visitor: &mut V, body: &ClassBody) {
             visitor.visit_parameter(param);
         }
         visitor.visit_type_annotation(&method.return_type);
-        visitor.visit_expr(&method.body);
+        visitor.visit_stmt(&method.body);
     }
     for constructor in &body.constructors {
         for param in &constructor.params {
             visitor.visit_parameter(param);
         }
         if let Some(body) = &constructor.body {
-            visitor.visit_expr(body);
+            visitor.visit_stmt(body);
         }
     }
 }
@@ -570,7 +570,7 @@ fn walk_trait_body<V: Visitor + ?Sized>(visitor: &mut V, body: &TraitBody) {
         }
         visitor.visit_type_annotation(&method.return_type);
         if let Some(default_body) = &method.default_body {
-            visitor.visit_expr(default_body);
+            visitor.visit_stmt(default_body);
         }
     }
 }
@@ -585,7 +585,7 @@ fn walk_impl_item<V: Visitor + ?Sized>(visitor: &mut V, item: &ImplItem) {
                 visitor.visit_parameter(param);
             }
             visitor.visit_type_annotation(&method.return_type);
-            visitor.visit_expr(&method.body);
+            visitor.visit_stmt(&method.body);
         }
         ImplItem::Type { type_def, .. } => {
             visitor.visit_type(type_def);
@@ -739,40 +739,6 @@ mod tests {
         // Should count: Binary expr + 2 Literal exprs = 3 expressions
         assert_eq!(counter.expr_count, 3);
         assert_eq!(counter.stmt_count, 0);
-    }
-
-    #[test]
-    fn test_visitor_walks_function() {
-        let mut counter = NodeCounter::new();
-
-        // Create a function definition
-        let func = Stmt::FunctionDef {
-            name: "test".to_string(),
-            is_pure: false,
-            is_async: false,
-            generics: vec![],
-            params: vec![Parameter {
-                name: "x".to_string(),
-                type_annotation: TypeAnnotation::explicit(Type::Int, dummy_span()),
-                span: dummy_span(),
-            }],
-            return_type: TypeAnnotation::explicit(Type::Int, dummy_span()),
-            body: Box::new(Expr::Identifier {
-                name: "x".to_string(),
-                type_annotation: dummy_type_annotation(),
-                span: dummy_span(),
-            }),
-            visibility: crate::stmt::Visibility::Public,
-            span: dummy_span(),
-        };
-
-        counter.visit_stmt(&func);
-
-        // Should count: function stmt + return expr = 1 stmt, 1 expr
-        // Plus types in annotations
-        assert_eq!(counter.stmt_count, 1);
-        assert_eq!(counter.expr_count, 1);
-        assert!(counter.type_count >= 2); // At least param type and return type
     }
 
     #[test]

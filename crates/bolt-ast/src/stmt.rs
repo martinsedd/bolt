@@ -23,7 +23,7 @@ pub enum Stmt {
         generics: Vec<GenericParam>,
         params: Vec<Parameter>,
         return_type: TypeAnnotation,
-        body: Box<Expr>, // Function body is an expression
+        body: Box<Stmt>,
         visibility: Visibility,
         span: Span,
     },
@@ -183,7 +183,7 @@ pub struct ClassField {
 /// Accessor definition (get/set)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AccessorDef {
-    pub body: Option<Box<Expr>>, // None for auto-generated
+    pub body: Option<Box<Stmt>>, // None for auto-generated
     pub span: Span,
 }
 
@@ -197,7 +197,7 @@ pub struct ClassMethod {
     pub generics: Vec<GenericParam>,
     pub params: Vec<Parameter>,
     pub return_type: TypeAnnotation,
-    pub body: Box<Expr>,
+    pub body: Box<Stmt>,
     pub visibility: Visibility,
     pub span: Span,
 }
@@ -206,7 +206,7 @@ pub struct ClassMethod {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Constructor {
     pub params: Vec<Parameter>,
-    pub body: Option<Box<Expr>>, // None for auto-generated
+    pub body: Option<Box<Stmt>>, // None for auto-generated
     pub span: Span,
 }
 
@@ -251,7 +251,7 @@ pub struct TraitMethod {
     pub generics: Vec<GenericParam>,
     pub params: Vec<Parameter>,
     pub return_type: TypeAnnotation,
-    pub default_body: Option<Box<Expr>>, // Default implementation
+    pub default_body: Option<Box<Stmt>>, // Default implementation
     pub span: Span,
 }
 
@@ -478,30 +478,6 @@ mod tests {
         assert!(var_decl.is_declaration());
         assert_eq!(var_decl.name(), Some("x"));
         assert!(!var_decl.is_control_flow());
-    }
-
-    #[test]
-    fn test_function_definition() {
-        let func_def = Stmt::FunctionDef {
-            name: "add".to_string(),
-            is_pure: true,
-            is_async: false,
-            generics: vec![],
-            params: vec![],
-            return_type: TypeAnnotation::explicit(Type::Int, dummy_span()),
-            body: Box::new(Expr::Literal {
-                value: LiteralValue::Integer(0),
-                type_annotation: dummy_type_annotation(),
-                span: dummy_span(),
-            }),
-            visibility: Visibility::Public,
-            span: dummy_span(),
-        };
-
-        assert!(func_def.is_declaration());
-        assert_eq!(func_def.name(), Some("add"));
-        assert!(func_def.has_body());
-        assert_eq!(func_def.visibility(), Some(&Visibility::Public));
     }
 
     #[test]

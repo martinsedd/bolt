@@ -1,0 +1,1383 @@
+// Bolt Game Engine - Comprehensive Stress Test
+// A complete 2D game engine implementation exercising all parser features
+
+import Math
+import IO::{File, FileSystem}
+import Graphics::{Window, Canvas, Renderer}
+import Input::{Keyboard, Mouse, Gamepad}
+import Audio::{AudioEngine, Sound, Music}
+import Network::{HttpClient, WebSocket}
+import Collections::{HashMap, Vector, Queue, Stack}
+
+// Core mathematical primitives
+struct Vector2 :
+    pub x :: Float { get, set }
+    pub y :: Float { get, set }
+end
+
+struct Vector3 :
+    pub x :: Float { get, set }
+    pub y :: Float { get, set }
+    pub z :: Float { get, set }
+end
+
+struct Vector4 :
+    pub x :: Float { get, set }
+    pub y :: Float { get, set }
+    pub z :: Float { get, set }
+    pub w :: Float { get, set }
+end
+
+class Matrix3x3 :
+    pub elements :: [Float] { get }
+    
+    init(elements :: [Float])
+end
+
+class Matrix4x4 :
+    pub elements :: [Float] { get }
+    
+    init(elements :: [Float])
+end
+
+struct Quaternion :
+    pub x :: Float { get, set }
+    pub y :: Float { get, set }
+    pub z :: Float { get, set }
+    pub w :: Float { get, set }
+end
+
+struct Rectangle :
+    pub x :: Float { get, set }
+    pub y :: Float { get, set }
+    pub width :: Float { get, set }
+    pub height :: Float { get, set }
+end
+
+struct Circle :
+    pub center :: Vector2 { get, set }
+    pub radius :: Float { get, set }
+end
+
+// Color system
+struct Color :
+    pub r :: Float { get, set }
+    pub g :: Float { get, set }
+    pub b :: Float { get, set }
+    pub a :: Float { get, set }
+end
+
+enum ColorSpace :
+    RGB
+    HSV
+    HSL
+    CMYK { cyan :: Float, magenta :: Float, yellow :: Float, black :: Float }
+end
+
+// Asset management system
+enum AssetType :
+    Texture
+    Audio
+    Font
+    Model
+    Animation
+    Script
+    Data { format :: String, compression :: String }
+end
+
+enum AssetLoadState :
+    Unloaded
+    Loading
+    Loaded
+    Failed { error :: String, timestamp :: Float }
+end
+
+class Asset :
+    pub id :: String { get }
+    pub path :: String { get }
+    pub asset_type :: AssetType { get }
+    pub load_state :: AssetLoadState { get, set }
+    pub size_bytes :: Int { get }
+    pub metadata :: HashMap { get }
+end
+
+trait AssetLoader :
+    fn can_load(asset_type :: AssetType) -> Bool
+    fn load_asset(path :: String) -> Asset
+    fn unload_asset(asset :: Asset)
+    fn get_load_progress(asset :: Asset) -> Float
+end
+
+// Texture and graphics primitives
+struct Texture :
+    pub width :: Int { get }
+    pub height :: Int { get }
+    pub channels :: Int { get }
+    pub data :: [Int] { get }
+    pub format :: String { get }
+end
+
+struct Sprite :
+    pub texture :: Texture { get, set }
+    pub source_rect :: Rectangle { get, set }
+    pub position :: Vector2 { get, set }
+    pub scale :: Vector2 { get, set }
+    pub rotation :: Float { get, set }
+    pub tint :: Color { get, set }
+    pub visible :: Bool { get, set }
+end
+
+struct Animation :
+    pub frames :: [Rectangle] { get }
+    pub frame_duration :: Float { get }
+    pub loop_animation :: Bool { get, set }
+    pub current_frame :: Int { get, set }
+    pub elapsed_time :: Float { get, set }
+end
+
+// Input system
+enum InputType :
+    Keyboard
+    Mouse
+    Gamepad
+    Touch { finger_count :: Int }
+end
+
+enum KeyState :
+    Released
+    Pressed
+    Held
+    JustPressed
+    JustReleased
+end
+
+enum MouseButton :
+    Left
+    Right
+    Middle
+    Extra1
+    Extra2
+end
+
+struct InputEvent :
+    pub input_type :: InputType { get }
+    pub timestamp :: Float { get }
+    pub handled :: Bool { get, set }
+end
+
+struct KeyboardEvent :
+    pub key_code :: Int { get }
+    pub state :: KeyState { get }
+    pub modifiers :: [String] { get }
+end
+
+struct MouseEvent :
+    pub button :: MouseButton { get }
+    pub position :: Vector2 { get }
+    pub delta :: Vector2 { get }
+    pub scroll :: Float { get }
+end
+
+trait InputHandler :
+    fn handle_keyboard(event :: KeyboardEvent) -> Bool
+    fn handle_mouse(event :: MouseEvent) -> Bool
+    fn handle_gamepad(device_id :: Int, buttons :: [Bool], axes :: [Float]) -> Bool
+    fn get_priority() -> Int
+end
+
+// Physics system
+enum PhysicsBodyType :
+    Static
+    Kinematic
+    Dynamic
+    Trigger
+end
+
+struct PhysicsBody :
+    pub body_type :: PhysicsBodyType { get, set }
+    pub position :: Vector2 { get, set }
+    pub velocity :: Vector2 { get, set }
+    pub acceleration :: Vector2 { get, set }
+    pub mass :: Float { get, set }
+    pub friction :: Float { get, set }
+    pub restitution :: Float { get, set }
+    pub gravity_scale :: Float { get, set }
+    pub is_sleeping :: Bool { get, set }
+end
+
+enum CollisionShape :
+    Box { width :: Float, height :: Float }
+    Circle { radius :: Float }
+    Polygon { vertices :: [Vector2] }
+    Capsule { radius :: Float, height :: Float }
+end
+
+struct Collider :
+    pub shape :: CollisionShape { get, set }
+    pub offset :: Vector2 { get, set }
+    pub is_trigger :: Bool { get, set }
+    pub collision_layer :: Int { get, set }
+    pub collision_mask :: Int { get, set }
+end
+
+struct CollisionInfo :
+    pub collider_a :: Collider { get }
+    pub collider_b :: Collider { get }
+    pub contact_point :: Vector2 { get }
+    pub normal :: Vector2 { get }
+    pub penetration :: Float { get }
+    pub impulse :: Float { get }
+end
+
+trait PhysicsEventListener :
+    fn on_collision_enter(info :: CollisionInfo)
+    fn on_collision_stay(info :: CollisionInfo)
+    fn on_collision_exit(info :: CollisionInfo)
+    fn on_trigger_enter(info :: CollisionInfo)
+    fn on_trigger_exit(info :: CollisionInfo)
+end
+
+// Component system
+trait Component :
+    fn get_type_name() -> String
+    fn initialize()
+    fn update(delta_time :: Float)
+    fn destroy()
+    fn is_active() -> Bool
+    fn set_active(active :: Bool)
+end
+
+struct Transform :
+    pub position :: Vector3 { get, set }
+    pub rotation :: Quaternion { get, set }
+    pub scale :: Vector3 { get, set }
+    pub parent :: Transform { get, set }
+    pub children :: [Transform] { get }
+end
+
+struct SpriteRenderer :
+    pub sprite :: Sprite { get, set }
+    pub sort_order :: Int { get, set }
+    pub material :: String { get, set }
+    pub enabled :: Bool { get, set }
+end
+
+struct AudioSource :
+    pub clip :: String { get, set }
+    pub volume :: Float { get, set }
+    pub pitch :: Float { get, set }
+    pub loop_audio :: Bool { get, set }
+    pub is_playing :: Bool { get, set }
+    pub is_3d :: Bool { get, set }
+end
+
+struct ParticleSystem :
+    pub max_particles :: Int { get, set }
+    pub emission_rate :: Float { get, set }
+    pub lifetime :: Float { get, set }
+    pub start_velocity :: Vector3 { get, set }
+    pub gravity :: Vector3 { get, set }
+    pub start_color :: Color { get, set }
+    pub end_color :: Color { get, set }
+    pub start_size :: Float { get, set }
+    pub end_size :: Float { get, set }
+end
+
+// Entity-Component-System architecture
+class Entity :
+    pub id :: Int { get }
+    pub name :: String { get, set }
+    pub active :: Bool { get, set }
+    pub components :: HashMap { get }
+    pub tag :: String { get, set }
+    pub layer :: Int { get, set }
+end
+
+trait System :
+    fn initialize()
+    fn update(delta_time :: Float, entities :: [Entity])
+    fn render(entities :: [Entity])
+    fn cleanup()
+    fn get_required_components() -> [String]
+    fn get_priority() -> Int
+end
+
+// Rendering system
+enum RenderLayer :
+    Background
+    World
+    UI
+    Overlay
+    Debug
+end
+
+enum BlendMode :
+    Normal
+    Additive
+    Multiply
+    Screen
+    Overlay
+    SoftLight
+    HardLight
+end
+
+struct Material :
+    pub shader :: String { get, set }
+    pub textures :: HashMap { get }
+    pub properties :: HashMap { get }
+    pub blend_mode :: BlendMode { get, set }
+    pub cull_mode :: String { get, set }
+    pub depth_test :: Bool { get, set }
+end
+
+struct Camera :
+    pub position :: Vector3 { get, set }
+    pub target :: Vector3 { get, set }
+    pub up :: Vector3 { get, set }
+    pub field_of_view :: Float { get, set }
+    pub near_plane :: Float { get, set }
+    pub far_plane :: Float { get, set }
+    pub aspect_ratio :: Float { get, set }
+    pub orthographic :: Bool { get, set }
+    pub orthographic_size :: Float { get, set }
+    pub viewport :: Rectangle { get, set }
+    pub clear_color :: Color { get, set }
+    pub render_layers :: [RenderLayer] { get, set }
+end
+
+struct RenderCommand :
+    pub material :: Material { get }
+    pub transform :: Matrix4x4 { get }
+    pub geometry :: String { get }
+    pub layer :: RenderLayer { get }
+    pub sort_key :: Int { get }
+end
+
+trait Renderer :
+    fn initialize()
+    fn begin_frame()
+    fn submit_command(command :: RenderCommand)
+    fn render_frame(camera :: Camera)
+    fn end_frame()
+    fn cleanup()
+    fn get_stats() -> HashMap
+end
+
+// Audio system
+struct AudioClip :
+    pub samples :: [Float] { get }
+    pub sample_rate :: Int { get }
+    pub channels :: Int { get }
+    pub duration :: Float { get }
+    pub format :: String { get }
+end
+
+struct Audio3DSettings :
+    pub min_distance :: Float { get, set }
+    pub max_distance :: Float { get, set }
+    pub rolloff_factor :: Float { get, set }
+    pub doppler_factor :: Float { get, set }
+end
+
+trait AudioEffect :
+    fn process_audio(samples :: [Float], sample_rate :: Int) -> [Float]
+    fn get_parameter(name :: String) -> Float
+    fn set_parameter(name :: String, value :: Float)
+    fn bypass(enabled :: Bool)
+end
+
+// Game state management
+enum GameState :
+    Loading
+    MainMenu
+    Playing
+    Paused
+    GameOver
+    Settings
+    Credits
+end
+
+trait GameStateManager :
+    fn change_state(new_state :: GameState)
+    fn push_state(state :: GameState)
+    fn pop_state()
+    fn get_current_state() -> GameState
+    fn update(delta_time :: Float)
+    fn render()
+end
+
+// Scene management
+class Scene :
+    pub name :: String { get }
+    pub entities :: [Entity] { get }
+    pub systems :: [System] { get }
+    pub cameras :: [Camera] { get }
+    pub is_loaded :: Bool { get, set }
+    pub is_active :: Bool { get, set }
+end
+
+trait SceneManager :
+    fn load_scene(name :: String)
+    fn unload_scene(name :: String)
+    fn get_active_scene() -> Scene
+    fn add_entity(entity :: Entity)
+    fn remove_entity(entity_id :: Int)
+    fn find_entity(name :: String) -> Entity
+    fn find_entities_with_tag(tag :: String) -> [Entity]
+end
+
+// UI system
+enum UIAnchor :
+    TopLeft
+    TopCenter
+    TopRight
+    MiddleLeft
+    MiddleCenter
+    MiddleRight
+    BottomLeft
+    BottomCenter
+    BottomRight
+    Custom { x :: Float, y :: Float }
+end
+
+struct UIElement :
+    pub position :: Vector2 { get, set }
+    pub size :: Vector2 { get, set }
+    pub anchor :: UIAnchor { get, set }
+    pub pivot :: Vector2 { get, set }
+    pub rotation :: Float { get, set }
+    pub scale :: Vector2 { get, set }
+    pub visible :: Bool { get, set }
+    pub interactive :: Bool { get, set }
+    pub parent :: UIElement { get, set }
+    pub children :: [UIElement] { get }
+end
+
+struct UIText :
+    pub text :: String { get, set }
+    pub font :: String { get, set }
+    pub font_size :: Int { get, set }
+    pub color :: Color { get, set }
+    pub alignment :: String { get, set }
+    pub word_wrap :: Bool { get, set }
+    pub rich_text :: Bool { get, set }
+end
+
+struct UIButton :
+    pub normal_color :: Color { get, set }
+    pub hover_color :: Color { get, set }
+    pub pressed_color :: Color { get, set }
+    pub disabled_color :: Color { get, set }
+    pub transition_duration :: Float { get, set }
+end
+
+struct UIImage :
+    pub texture :: Texture { get, set }
+    pub color :: Color { get, set }
+    pub preserve_aspect :: Bool { get, set }
+    pub fill_method :: String { get, set }
+end
+
+trait UIEventHandler :
+    fn on_click()
+    fn on_hover_enter()
+    fn on_hover_exit()
+    fn on_press()
+    fn on_release()
+    fn on_drag(delta :: Vector2)
+end
+
+// Networking system
+enum NetworkEventType :
+    Connected
+    Disconnected
+    DataReceived
+    Error { code :: Int, message :: String }
+end
+
+struct NetworkMessage :
+    pub sender_id :: String { get }
+    pub message_type :: String { get }
+    pub data :: [Int] { get }
+    pub timestamp :: Float { get }
+    pub reliable :: Bool { get }
+end
+
+trait NetworkManager :
+    fn start_server(port :: Int) -> Bool
+    fn connect_to_server(address :: String, port :: Int) -> Bool
+    fn disconnect()
+    fn send_message(message :: NetworkMessage)
+    fn broadcast_message(message :: NetworkMessage)
+    fn get_connected_clients() -> [String]
+    fn is_server() -> Bool
+    fn is_connected() -> Bool
+end
+
+// Save/Load system
+enum SaveFileFormat :
+    Binary
+    JSON
+    XML
+    Custom { format_name :: String }
+end
+
+struct SaveData :
+    pub version :: String { get }
+    pub timestamp :: Float { get }
+    pub data :: HashMap { get }
+    pub checksum :: String { get }
+end
+
+trait SaveManager :
+    fn save_game(slot :: Int, data :: SaveData) -> Bool
+    fn load_game(slot :: Int) -> SaveData
+    fn delete_save(slot :: Int) -> Bool
+    fn get_save_slots() -> [Int]
+    fn has_save(slot :: Int) -> Bool
+    fn get_save_info(slot :: Int) -> HashMap
+end
+
+// Performance profiling
+struct ProfilerSample :
+    pub name :: String { get }
+    pub start_time :: Float { get }
+    pub end_time :: Float { get }
+    pub duration :: Float { get }
+    pub memory_usage :: Int { get }
+    pub call_count :: Int { get }
+end
+
+trait Profiler :
+    fn begin_sample(name :: String)
+    fn end_sample(name :: String)
+    fn get_samples() -> [ProfilerSample]
+    fn clear_samples()
+    fn set_enabled(enabled :: Bool)
+    fn get_frame_time() -> Float
+    fn get_fps() -> Float
+end
+
+// Main engine class
+class GameEngine :
+    pub window :: Window { get }
+    pub renderer :: Renderer { get }
+    pub audio_engine :: AudioEngine { get }
+    pub input_manager :: InputHandler { get }
+    pub physics_world :: PhysicsEventListener { get }
+    pub scene_manager :: SceneManager { get }
+    pub asset_manager :: AssetLoader { get }
+    pub ui_manager :: UIEventHandler { get }
+    pub network_manager :: NetworkManager { get }
+    pub save_manager :: SaveManager { get }
+    pub profiler :: Profiler { get }
+    
+    mut is_running :: Bool { get, set }
+    mut target_fps :: Int { get, set }
+    mut current_scene :: Scene { get, set }
+    mut delta_time :: Float { get, set }
+    mut frame_count :: Int { get, set }
+    
+    init(window_width :: Int, window_height :: Int, title :: String)
+    
+    pub fn initialize() -> Bool :
+        let success = true
+        
+        success = success and $renderer.initialize()
+        success = success and $audio_engine.initialize()
+        success = success and $physics_world.initialize()
+        
+        if success :
+            print("Game engine initialized successfully")
+        else :
+            print("Failed to initialize game engine")
+        end
+        
+        success
+    end
+    
+    pub fn run() :
+        $is_running = true
+        
+        mut last_frame_time = get_current_time()
+        
+        loop $is_running :
+            let current_time = get_current_time()
+            $delta_time = current_time - last_frame_time
+            last_frame_time = current_time
+            
+            $profiler.begin_sample("Frame")
+            
+            $profiler.begin_sample("Input")
+            update_input()
+            $profiler.end_sample("Input")
+            
+            $profiler.begin_sample("Update")
+            update($delta_time)
+            $profiler.end_sample("Update")
+            
+            $profiler.begin_sample("Render")
+            render()
+            $profiler.end_sample("Render")
+            
+            $profiler.end_sample("Frame")
+            
+            $frame_count = $frame_count + 1
+            
+            limit_framerate()
+        end
+        
+        cleanup()
+    end
+    
+    pub fn stop() :
+        $is_running = false
+    end
+    
+    fn update_input() :
+        let keyboard_events = get_keyboard_events()
+        let mouse_events = get_mouse_events()
+        
+        // Process keyboard events
+        mut i = 0
+        loop i < keyboard_events.length() :
+            let event = keyboard_events[i]
+            $input_manager.handle_keyboard(event)
+            i = i + 1
+        end
+        
+        // Process mouse events
+        i = 0
+        loop i < mouse_events.length() :
+            let event = mouse_events[i]
+            $input_manager.handle_mouse(event)
+            i = i + 1
+        end
+    end
+    
+    fn update(delta_time :: Float) :
+        if $current_scene.is_active :
+            // Update all systems in the current scene
+            let systems = $current_scene.systems
+            mut i = 0
+            loop i < systems.length() :
+                let system = systems[i]
+                system.update(delta_time, $current_scene.entities)
+                i = i + 1
+            end
+            
+            // Update UI
+            $ui_manager.update(delta_time)
+            
+            // Update networking
+            if $network_manager.is_connected() :
+                process_network_messages()
+            end
+        end
+    end
+    
+    fn render() :
+        $renderer.begin_frame()
+        
+        if $current_scene.is_active :
+            // Render all cameras in the scene
+            let cameras = $current_scene.cameras
+            mut i = 0
+            loop i < cameras.length() :
+                let camera = cameras[i]
+                render_camera(camera)
+                i = i + 1
+            end
+        end
+        
+        // Render UI on top
+        render_ui()
+        
+        // Render debug information if enabled
+        if $profiler.get_enabled() :
+            render_debug_info()
+        end
+        
+        $renderer.end_frame()
+    end
+    
+    fn render_camera(camera :: Camera) :
+        // Set up camera for rendering
+        $renderer.set_camera(camera)
+        
+        // Collect render commands from entities
+        let entities = $current_scene.entities
+        mut render_commands = []
+        
+        mut i = 0
+        loop i < entities.length() :
+            let entity = entities[i]
+            if entity.active :
+                let render_command = create_render_command(entity)
+                if render_command.is_valid() :
+                    render_commands.push(render_command)
+                end
+            end
+            i = i + 1
+        end
+        
+        // Sort render commands by layer and depth
+        sort_render_commands(render_commands)
+        
+        // Submit render commands
+        i = 0
+        loop i < render_commands.length() :
+            $renderer.submit_command(render_commands[i])
+            i = i + 1
+        end
+        
+        // Render the frame
+        $renderer.render_frame(camera)
+    end
+    
+    fn render_ui() :
+        // Render UI elements
+        let ui_elements = get_ui_elements()
+        mut i = 0
+        loop i < ui_elements.length() :
+            let element = ui_elements[i]
+            if element.visible :
+                render_ui_element(element)
+            end
+            i = i + 1
+        end
+    end
+    
+    fn render_debug_info() :
+        let fps = $profiler.get_fps()
+        let frame_time = $profiler.get_frame_time()
+        let samples = $profiler.get_samples()
+        
+        draw_debug_text("FPS: " + fps.to_string(), Vector2(10.0, 10.0))
+        draw_debug_text("Frame Time: " + frame_time.to_string() + "ms", Vector2(10.0, 30.0))
+        
+        mut y_offset = 50.0
+        mut i = 0
+        loop i < samples.length() :
+            let sample = samples[i]
+            let text = sample.name + ": " + sample.duration.to_string() + "ms"
+            draw_debug_text(text, Vector2(10.0, y_offset))
+            y_offset = y_offset + 20.0
+            i = i + 1
+        end
+    end
+    
+    fn cleanup() :
+        $scene_manager.cleanup()
+        $renderer.cleanup()
+        $audio_engine.cleanup()
+        $network_manager.disconnect()
+        print("Game engine cleaned up")
+    end
+    
+    fn limit_framerate() :
+        let target_frame_time = 1.0 / $target_fps
+        let current_frame_time = $profiler.get_frame_time() / 1000.0
+        
+        if current_frame_time < target_frame_time :
+            let sleep_time = target_frame_time - current_frame_time
+            thread_sleep(sleep_time * 1000.0)
+        end
+    end
+    
+    fn process_network_messages() :
+        let messages = $network_manager.receive_messages()
+        mut i = 0
+        loop i < messages.length() :
+            let message = messages[i]
+            handle_network_message(message)
+            i = i + 1
+        end
+    end
+    
+    fn handle_network_message(message :: NetworkMessage) :
+        // Handle different message types
+        if message.message_type.eq("player_move") :
+            handle_player_move_message(message)
+        else :
+            if message.message_type.eq("game_state") :
+                handle_game_state_message(message)
+            else :
+                if message.message_type.eq("chat") :
+                    handle_chat_message(message)
+                else :
+                    print("Unknown message type: " + message.message_type)
+                end
+            end
+        end
+    end
+end
+
+// Implementation blocks for the math types
+impl Vector2 :
+    pub fn new(x :: Float, y :: Float) -> Vector2 :
+        Vector2(x, y)
+    end
+    
+    pub fn zero() -> Vector2 :
+        Vector2(0.0, 0.0)
+    end
+    
+    pub fn one() -> Vector2 :
+        Vector2(1.0, 1.0)
+    end
+    
+    pub fn length() -> Float :
+        Math.sqrt($x * $x + $y * $y)
+    end
+    
+    pub fn length_squared() -> Float :
+        $x * $x + $y * $y
+    end
+    
+    pub fn normalize() -> Vector2 :
+        let len = length()
+        if len > 0.0 :
+            Vector2($x / len, $y / len)
+        else :
+            Vector2.zero()
+        end
+    end
+    
+    pub fn dot(other :: Vector2) -> Float :
+        $x * other.x + $y * other.y
+    end
+    
+    pub fn distance_to(other :: Vector2) -> Float :
+        let dx = $x - other.x
+        let dy = $y - other.y
+        Math.sqrt(dx * dx + dy * dy)
+    end
+    
+    pub fn lerp(other :: Vector2, t :: Float) -> Vector2 :
+        Vector2(
+            $x + ($other.x - $x) * t,
+            $y + ($other.y - $y) * t
+        )
+    end
+end
+
+impl Vector3 :
+    pub fn new(x :: Float, y :: Float, z :: Float) -> Vector3 :
+        Vector3(x, y, z)
+    end
+    
+    pub fn zero() -> Vector3 :
+        Vector3(0.0, 0.0, 0.0)
+    end
+    
+    pub fn up() -> Vector3 :
+        Vector3(0.0, 1.0, 0.0)
+    end
+    
+    pub fn forward() -> Vector3 :
+        Vector3(0.0, 0.0, 1.0)
+    end
+    
+    pub fn right() -> Vector3 :
+        Vector3(1.0, 0.0, 0.0)
+    end
+    
+    pub fn length() -> Float :
+        Math.sqrt($x * $x + $y * $y + $z * $z)
+    end
+    
+    pub fn normalize() -> Vector3 :
+        let len = length()
+        if len > 0.0 :
+            Vector3($x / len, $y / len, $z / len)
+        else :
+            Vector3.zero()
+        end
+    end
+    
+    pub fn cross(other :: Vector3) -> Vector3 :
+        Vector3(
+            $y * other.z - $z * other.y,
+            $z * other.x - $x * other.z,
+            $x * other.y - $y * other.x
+        )
+    end
+    
+    pub fn dot(other :: Vector3) -> Float :
+        $x * other.x + $y * other.y + $z * other.z
+    end
+end
+
+impl Color :
+    pub fn white() -> Color :
+        Color(1.0, 1.0, 1.0, 1.0)
+    end
+    
+    pub fn black() -> Color :
+        Color(0.0, 0.0, 0.0, 1.0)
+    end
+    
+    pub fn red() -> Color :
+        Color(1.0, 0.0, 0.0, 1.0)
+    end
+    
+    pub fn green() -> Color :
+        Color(0.0, 1.0, 0.0, 1.0)
+    end
+    
+    pub fn blue() -> Color :
+        Color(0.0, 0.0, 1.0, 1.0)
+    end
+    
+    pub fn lerp(other :: Color, t :: Float) -> Color :
+        Color(
+            $r + (other.r - $r) * t,
+            $g + (other.g - $g) * t,
+            $b + (other.b - $b) * t,
+            $a + (other.a - $a) * t
+        )
+    end
+    
+    pub fn to_hex() -> String :
+        let r_hex = ($r * 255.0).to_hex()
+        let g_hex = ($g * 255.0).to_hex()
+        let b_hex = ($b * 255.0).to_hex()
+        "#" + r_hex + g_hex + b_hex
+    end
+end
+
+// Component implementations
+impl Component for Transform :
+    fn get_type_name() -> String :
+        "Transform"
+    end
+    
+    fn initialize() :
+        $position = Vector3.zero()
+        $rotation = Quaternion.identity()
+        $scale = Vector3(1.0, 1.0, 1.0)
+    end
+    
+    fn update(delta_time :: Float) :
+        // Transform updates are handled by other systems
+    end
+    
+    fn destroy() :
+        // Clean up parent-child relationships
+        if $parent.is_valid() :
+            $parent.remove_child($self)
+        end
+        
+        mut i = 0
+        loop i < $children.length() :
+            $children[i].parent = null
+            i = i + 1
+        end
+    end
+    
+    fn is_active() -> Bool :
+        true
+    end
+    
+    fn set_active(active :: Bool) :
+        // Transforms are always active
+    end
+end
+
+impl Component for SpriteRenderer :
+    fn get_type_name() -> String :
+        "SpriteRenderer"
+    end
+    
+    fn initialize() :
+        $enabled = true
+        $sort_order = 0
+    end
+    
+    fn update(delta_time :: Float) :
+        // Update sprite animation if needed
+        if $sprite.animation.is_valid() :
+            update_sprite_animation(delta_time)
+        end
+    end
+    
+    fn destroy() :
+        // Release sprite resources
+        if $sprite.is_valid() :
+            release_sprite($sprite)
+        end
+    end
+    
+    fn is_active() -> Bool :
+        $enabled
+    end
+    
+    fn set_active(active :: Bool) :
+        $enabled = active
+    end
+end
+
+// Main function to demonstrate the engine
+fn main() :
+    print("Starting Bolt Game Engine Stress Test")
+    
+    // Create and initialize the game engine
+    let engine = GameEngine(1920, 1080, "Bolt Game Engine")
+    
+    if engine.initialize() :
+        print("Engine initialized successfully")
+        
+        // Create a test scene
+        let scene = create_test_scene()
+        engine.scene_manager.load_scene("test_scene")
+        
+        // Create some test entities
+        create_test_entities(engine)
+        
+        // Set up networking if needed
+        if should_enable_networking() :
+            engine.network_manager.start_server(7777)
+        end
+        
+        // Enable profiling
+        engine.profiler.set_enabled(true)
+        
+        // Run the game loop
+        engine.run()
+        
+        print("Engine finished running")
+    else :
+        print("Failed to initialize engine")
+    end
+    
+    return 0
+end
+
+fn create_test_scene() -> Scene :
+    let scene = Scene("test_scene")
+    
+    // Add camera
+    let camera = Camera()
+    camera.position = Vector3(0.0, 0.0, -10.0)
+    camera.clear_color = Color.black()
+    scene.cameras.push(camera)
+    
+    scene
+end
+
+fn create_test_entities(engine :: GameEngine) :
+    // Create player entity
+    let player = Entity(1, "Player")
+    player.tag = "Player"
+    
+    let player_transform = Transform()
+    player_transform.position = Vector3(0.0, 0.0, 0.0)
+    player.add_component(player_transform)
+    
+    let player_sprite = SpriteRenderer()
+    player_sprite.sprite = load_sprite("player.png")
+    player.add_component(player_sprite)
+    
+    let player_physics = PhysicsBody()
+    player_physics.body_type = PhysicsBodyType.Dynamic
+    player.add_component(player_physics)
+    
+    engine.scene_manager.add_entity(player)
+    
+    // Create enemies
+    mut i = 0
+    loop i < 10 :
+        let enemy = Entity(i + 2, "Enemy" + i.to_string())
+        enemy.tag = "Enemy"
+        
+        let enemy_transform = Transform()
+        enemy_transform.position = Vector3(
+            Math.random() * 100.0 - 50.0,
+            Math.random() * 100.0 - 50.0,
+            0.0
+        )
+        enemy.add_component(enemy_transform)
+        
+        let enemy_sprite = SpriteRenderer()
+        enemy_sprite.sprite = load_sprite("enemy.png")
+        enemy.add_component(enemy_sprite)
+        
+        engine.scene_manager.add_entity(enemy)
+        i = i + 1
+    end
+    
+    print("Created test entities")
+end
+
+fn should_enable_networking() -> Bool :
+    // Check command line arguments or configuration
+    false
+end
+
+fn get_current_time() -> Float :
+    // Platform-specific time implementation
+    0.0
+end
+
+fn get_keyboard_events() -> [KeyboardEvent] :
+    // Platform-specific input implementation
+    []
+end
+
+fn get_mouse_events() -> [MouseEvent] :
+    // Platform-specific input implementation
+    []
+end
+
+fn thread_sleep(milliseconds :: Float) :
+    // Platform-specific sleep implementation
+end
+
+fn load_sprite(path :: String) -> Sprite :
+    // Asset loading implementation
+    Sprite()
+end
+
+fn release_sprite(sprite :: Sprite) :
+    // Resource cleanup implementation
+end
+
+fn draw_debug_text(text :: String, position :: Vector2) :
+    // Debug rendering implementation
+end
+
+// Trait definitions
+trait Drawable :
+    fn draw() -> String
+    fn area() -> Float
+end
+
+trait Movable :
+    fn move_to(x :: Float, y :: Float)
+    fn get_position() -> Point
+end
+
+trait Comparable :
+    fn compare(other :: String) -> Int
+end
+
+// Base class with inheritance
+class Shape :
+    pub color :: Color { get }
+    mut visible :: Bool { get, set }
+    protected position :: Point { get }
+
+    init(color :: Color, position :: Point)
+
+    pub fn show() :
+        $visible = true
+        print("Shape is now visible")
+    end
+
+    pub fn hide() :
+        $visible = false
+    end
+
+    pub fn move_by(dx :: Float, dy :: Float) :
+        let new_x = $position.x + dx
+        let new_y = $position.y + dy
+        $position = Point(new_x, new_y, 0.0)
+    end
+end
+
+// Derived class with method overrides
+class Circle :: Shape :
+    radius :: Float { get }
+    center :: Point { get }
+
+    init(center :: Point, radius :: Float, color :: Color) :
+        super(color, center)
+        $center = center
+        $radius = radius
+    end
+
+    override pub fn show() :
+        super.show()
+        print("Circle shown with radius")
+    end
+
+    pub fn resize(new_radius :: Float) :
+        $radius = new_radius
+    end
+end
+
+class Rectangle :: Shape :
+    width :: Float { get }
+    height :: Float { get }
+
+    init(position :: Point, width :: Float, height :: Float, color :: Color) :
+        super(color, position)
+        $width = width
+        $height = height
+    end
+
+    pub fn get_dimensions() -> Point :
+        Point($width, $height, 0.0)
+    end
+end
+
+// Trait implementations
+impl Drawable for Circle :
+    fn draw() -> String :
+        if $visible :
+            "Circle is visible"
+        else :
+            "Circle is hidden"
+        end
+    end
+
+    fn area() -> Float :
+        3.14159 * $radius * $radius
+    end
+end
+
+impl Drawable for Rectangle :
+    fn draw() -> String :
+        "Rectangle shape"
+    end
+
+    fn area() -> Float :
+        $width * $height
+    end
+end
+
+impl Movable for Circle :
+    fn move_to(x :: Float, y :: Float) :
+        $center = Point(x, y, 0.0)
+    end
+
+    fn get_position() -> Point :
+        $center
+    end
+end
+
+// Inherent implementations
+impl Circle :
+    pub fn circumference() -> Float :
+        2.0 * 3.14159 * $radius
+    end
+
+    pub fn is_large() -> Bool :
+        $radius > 10.0
+    end
+end
+
+impl Rectangle :
+    pub fn perimeter() -> Float :
+        2.0 * ($width + $height)
+    end
+
+    pub fn is_square() -> Bool :
+        $width.eq($height)
+    end
+end
+
+// Standalone functions
+fn create_default_circle() -> Circle :
+    let origin = Point(0.0, 0.0, 0.0)
+    Circle(origin, 5.0, Color.Blue)
+end
+
+fn create_rectangle(w :: Float, h :: Float) -> Rectangle :
+    let pos = Point(0.0, 0.0, 0.0)
+    Rectangle(pos, w, h, Color.Red)
+end
+
+fn compare_areas(shape1 :: Circle, shape2 :: Rectangle) -> String :
+    let area1 = shape1.area()
+    let area2 = shape2.area()
+    
+    if area1 > area2 :
+        "Circle is larger"
+    else :
+        if area1 < area2 :
+            "Rectangle is larger"
+        else :
+            "Areas are equal"
+        end
+    end
+end
+
+fn process_shapes(circles :: [Circle], rectangles :: [Rectangle]) -> Int :
+    mut total_count = 0
+    mut large_shapes = 0
+    
+    // Process circles
+    let circle_count = circles.length()
+    total_count = total_count + circle_count
+    
+    // Process rectangles  
+    let rect_count = rectangles.length()
+    total_count = total_count + rect_count
+    
+    total_count
+end
+
+// Main function with comprehensive feature usage
+fn main() :
+    // Variable declarations
+    let origin = Point(0.0, 0.0, 0.0)
+    mut shapes_created = 0
+    
+    // Create shapes using constructors
+    let circle1 = Circle(origin, 10.0, Color.Red)
+    let circle2 = create_default_circle()
+    shapes_created = shapes_created + 2
+    
+    let rect1 = Rectangle(origin, 15.0, 20.0, Color.Green)
+    let rect2 = create_rectangle(8.0, 8.0)
+    shapes_created = shapes_created + 2
+    
+    // Method calls
+    circle1.show()
+    circle2.hide()
+    rect1.show()
+    
+    // Trait method calls
+    let circle_area = circle1.area()
+    let rect_area = rect1.area()
+    
+    // Inherent method calls
+    let circumference = circle1.circumference()
+    let perimeter = rect1.perimeter()
+    
+    // Control flow with method calls
+    if circle1.is_large() :
+        print("Circle 1 is large")
+        circle1.resize(15.0)
+    else :
+        print("Circle 1 is small")
+    end
+    
+    if rect2.is_square() :
+        print("Rectangle 2 is a square")
+    else :
+        print("Rectangle 2 is not a square")
+    end
+    
+    // Function calls
+    let comparison = compare_areas(circle1, rect2)
+    print(comparison)
+    
+    // Array creation and function calls
+    let circles = [circle1, circle2]
+    let rectangles = [rect1, rect2]
+    let total_shapes = process_shapes(circles, rectangles)
+    
+    // Complex expressions
+    let average_area = (circle_area + rect_area) / 2.0
+    let shape_density = total_shapes / average_area
+    
+    // Movement operations
+    circle1.move_to(5.0, 5.0)
+    let new_position = circle1.get_position()
+    
+    // Final result
+    return total_shapes
+end

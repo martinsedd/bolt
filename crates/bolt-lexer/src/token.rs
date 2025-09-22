@@ -297,7 +297,7 @@ pub fn keyword_from_str(s: &str) -> Option<TokenType> {
         "init" => Some(TokenType::Init),
         "break" => Some(TokenType::Break),
         "continue" => Some(TokenType::Continue),
-        "for" => Some(TokenType::As),
+        "for" => Some(TokenType::For),
         "type" => Some(TokenType::Type),
         "const" => Some(TokenType::Const),
         _ => None,
