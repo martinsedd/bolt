@@ -48,6 +48,10 @@ pub enum TokenType {
     Init,
     Break,
     Continue,
+    For,
+    As,
+    Type,
+    Const,
 
     // Operators
     Plus,       // +
@@ -243,6 +247,10 @@ impl fmt::Display for TokenType {
             TokenType::Init => write!(f, "init"),
             TokenType::Break => write!(f, "break"),
             TokenType::Continue => write!(f, "continue"),
+            TokenType::For => write!(f, "for"),
+            TokenType::As => write!(f, "as"),
+            TokenType::Type => write!(f, "type"),
+            TokenType::Const => write!(f, "const"),
         }
     }
 }
@@ -289,6 +297,9 @@ pub fn keyword_from_str(s: &str) -> Option<TokenType> {
         "init" => Some(TokenType::Init),
         "break" => Some(TokenType::Break),
         "continue" => Some(TokenType::Continue),
+        "for" => Some(TokenType::As),
+        "type" => Some(TokenType::Type),
+        "const" => Some(TokenType::Const),
         _ => None,
     }
 }
