@@ -310,11 +310,15 @@ impl Parser {
         }
 
         loop {
+            self.skip_trivia();
             items.push(parse_item(self)?);
+            self.skip_trivia();
 
             if !self.match_token(&TokenType::Comma) {
                 break;
             }
+
+            self.skip_trivia();
 
             // Allow trailing comma
             if self.check(&TokenType::RightParen)
@@ -531,5 +535,129 @@ mod tests {
         let span = parser.span_from(start_pos);
         assert_eq!(span.start.line, 1);
         assert!(span.end.line >= span.start.line);
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use bolt_lexer::Lexer;
+
+    #[test]
+    fn test_full_program_parsing() {
+        let source = include_str!("../../../test_program.bolt");
+
+        println!("Parsing full Bolt program ({} characters)...", source.len());
+
+        let mut lexer = Lexer::new(source);
+        let tokens = match lexer.tokenize() {
+            Ok(tokens) => {
+                println!("Lexing successful: {} tokens", tokens.len());
+                tokens
+            }
+            Err(e) => {
+                panic!("Lexing failed: {:?}", e);
+            }
+        };
+
+        let mut parser = Parser::new(tokens);
+        match parser.parse_program() {
+            Ok(statements) => {
+                println!(
+                    "Parsing successful: {} top-level statements",
+                    statements.len()
+                );
+
+                for (i, stmt) in statements.iter().enumerate() {
+                    let stmt_type = match &**stmt {
+                        Stmt::Import { .. } => "Import",
+                        Stmt::EnumDef { .. } => "Enum",
+                        Stmt::StructDef { .. } => "Struct",
+                        Stmt::TraitDef { .. } => "Trait",
+                        Stmt::ClassDef { .. } => "Class",
+                        Stmt::ImplBlock { .. } => "Impl",
+                        Stmt::FunctionDef { .. } => "Function",
+                        Stmt::VariableDecl { .. } => "Variable",
+                        _ => "Other",
+                    };
+                    println!("  {}: {}", i + 1, stmt_type);
+                }
+                println!("Full program parsed successfully!");
+            }
+            Err(e) => {
+                println!("Parsing failed: {:?}", e);
+
+                let errors = parser.errors();
+                if !errors.is_empty() {
+                    println!("Collected errors:");
+                    for error in errors {
+                        println!("  - {}", error);
+                    }
+                }
+
+                panic!("Parsing failed");
+            }
+        }
+    }
+    #[test]
+    fn test_simple_program_parsing() {
+        let source = r#"
+import Math
+
+enum Color :
+    Red
+    Blue
+end
+
+struct Point :
+    x :: Float
+    y :: Float
+end
+
+fn main() :
+    let p = Point(1.0, 2.0)
+    return 42
+end
+"#;
+
+        println!("Parsing simple Bolt program...");
+
+        // Tokenize
+        let mut lexer = Lexer::new(source);
+        let tokens = match lexer.tokenize() {
+            Ok(tokens) => {
+                println!("✅ Lexing successful: {} tokens", tokens.len());
+                tokens
+            }
+            Err(e) => {
+                panic!("❌ Lexing failed: {:?}", e);
+            }
+        };
+
+        // Parse
+        let mut parser = Parser::new(tokens);
+        match parser.parse_program() {
+            Ok(statements) => {
+                println!(
+                    "✅ Parsing successful: {} top-level statements",
+                    statements.len()
+                );
+                println!("🎉 Simple program parsed successfully!");
+            }
+            Err(e) => {
+                println!("❌ Parsing failed: {:?}", e);
+
+                // Show errors collected during parsing
+                let errors = parser.errors();
+                if !errors.is_empty() {
+                    println!("Collected errors:");
+                    for error in errors {
+                        println!("  - {}", error);
+                    }
+                }
+
+                panic!("Parsing failed");
+            }
+        }
     }
 }

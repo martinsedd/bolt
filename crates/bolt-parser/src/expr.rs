@@ -4,21 +4,21 @@ use bolt_ast::{BinaryOp, Expr, LiteralValue, UnaryOp};
 use bolt_lexer::{Position, Span, TokenType};
 
 /// Operator precedence levels (higher number = higher precedence)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Precedence {
-    None = 0,
-    Assignment = 1, // =, +=, -=, etc.
-    Or = 2,         // or
-    And = 3,        // and
-    Equality = 4,   // .eq(), .is() (method calls)
-    Comparison = 5, // <, >, <=, >=
-    Term = 6,       // +, -, ~= (concat)
-    Factor = 7,     // *, /, %
-    Unary = 8,      // -, not
-    Power = 9,      // ^
-    Call = 10,      // function calls, field access, indexing
-    Primary = 11,   // literals, identifiers, parentheses
-}
+// #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+// enum Precedence {
+//     None = 0,
+//     Assignment = 1, // =, +=, -=, etc.
+//     Or = 2,         // or
+//     And = 3,        // and
+//     Equality = 4,   // .eq(), .is() (method calls)
+//     Comparison = 5, // <, >, <=, >=
+//     Term = 6,       // +, -, ~= (concat)
+//     Factor = 7,     // *, /, %
+//     Unary = 8,      // -, not
+//     Power = 9,      // ^
+//     Call = 10,      // function calls, field access, indexing
+//     Primary = 11,   // literals, identifiers, parentheses
+// }
 
 fn create_inferred_annotation(span: Span) -> bolt_ast::TypeAnnotation {
     bolt_ast::TypeAnnotation::inferred(span)
@@ -411,6 +411,17 @@ impl Parser {
                 } else {
                     self.parse_block_expression(start_pos)
                 }
+            }
+
+            // Super calls: super.method() or super(args)
+            TokenType::Super => {
+                self.advance();
+                let span = self.span_from(start_pos);
+                Ok(Expr::Identifier {
+                    name: "super".to_string(),
+                    type_annotation: create_inferred_annotation(span),
+                    span,
+                })
             }
 
             // Control flow expressions

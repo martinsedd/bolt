@@ -1,7 +1,9 @@
 use crate::error::{ParseError, ParseResult};
 use crate::parser::Parser;
 use bolt_ast::{
-    AccessorDef, ClassBody, ClassField, ClassMethod, Constructor, Parameter, Stmt, Visibility,
+    AccessorDef, ClassBody, ClassField, ClassMethod, Constructor, EnumVariant, EnumVariantData,
+    ImplItem, ImportPath, LoopKind, Parameter, Stmt, StructField, TraitBody, TraitMethod,
+    Visibility,
 };
 use bolt_lexer::{Position, TokenType};
 
@@ -168,8 +170,19 @@ impl Parser {
             bolt_ast::TypeAnnotation::explicit(bolt_ast::Type::Unit, self.current_span())
         };
 
-        // Parse body
-        let body = self.parse_block(|parser| parser.parse_expression())?;
+        // Parse body - simple statement block
+        let body = self.parse_block(|parser| {
+            let mut statements = vec![];
+            while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                statements.push(Box::new(parser.parse_statement()?));
+                parser.skip_trivia();
+            }
+
+            Ok(Stmt::Block {
+                statements,
+                span: parser.span_from(parser.current_position()),
+            })
+        })?;
 
         let span = self.span_from(start_pos);
 
@@ -285,10 +298,24 @@ impl Parser {
                         methods.push(self.parse_class_method(visibility)?);
                     }
                 }
+                TokenType::Mut => {
+                    fields.push(self.parse_class_field(visibility)?);
+                }
+                TokenType::Fn => {
+                    methods.push(self.parse_class_method(visibility)?);
+                }
+                TokenType::Override => {
+                    methods.push(self.parse_class_method_with_override()?);
+                }
                 TokenType::Init => {
                     constructors.push(self.parse_constructor()?);
                 }
                 _ => {
+                    // DEBUG: debugging statement
+                    eprintln!(
+                        "DEBUG: Unexpected token in class body: {:?}",
+                        self.peek().token_type
+                    );
                     return Err(ParseError::invalid_statement(
                         "expected field, method, or constructor in class body",
                         self.current_span(),
@@ -397,6 +424,8 @@ impl Parser {
         let is_pure = self.match_token(&TokenType::Pure);
         let is_async = self.match_token(&TokenType::Async);
 
+        self.consume(&TokenType::Fn, "expected 'fn'")?;
+
         let name = if let TokenType::Identifier(name) = &self.peek().token_type {
             let name = name.clone();
             self.advance();
@@ -419,13 +448,25 @@ impl Parser {
 
         // Parse return type
         let return_type = if self.match_token(&TokenType::FunctionArrow) {
-            self.parse_type_annotation()?
+            let ty = self.parse_type()?;
+            bolt_ast::TypeAnnotation::explicit(ty, self.current_span())
         } else {
             bolt_ast::TypeAnnotation::explicit(bolt_ast::Type::Unit, self.current_span())
         };
 
-        // Parse body
-        let body = self.parse_block(|parser| parser.parse_expression())?;
+        // Parse body - simple statement block
+        let body = self.parse_block(|parser| {
+            let mut statements = vec![];
+            while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                statements.push(Box::new(parser.parse_statement()?));
+                parser.skip_trivia();
+            }
+
+            Ok(Stmt::Block {
+                statements,
+                span: parser.span_from(parser.current_position()),
+            })
+        })?;
 
         let span = self.span_from(start_pos);
 
@@ -460,9 +501,18 @@ impl Parser {
 
         // Parse optional body
         let body = if self.check(&TokenType::Colon) {
-            Some(Box::new(
-                self.parse_block(|parser| parser.parse_expression())?,
-            ))
+            Some(Box::new(self.parse_block(|parser| {
+                let mut statements = vec![];
+                while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                    statements.push(Box::new(parser.parse_statement()?));
+                    parser.skip_trivia();
+                }
+
+                Ok(Stmt::Block {
+                    statements,
+                    span: parser.span_from(parser.current_position()),
+                })
+            })?))
         } else {
             None // Auto-generated constructor
         };
@@ -499,34 +549,616 @@ impl Parser {
         Ok(Stmt::Return { value, span })
     }
 
-    // Placeholder implementations for complex statement types
+    /// Parse class method starting with override
+    fn parse_class_method_with_override(&mut self) -> ParseResult<ClassMethod> {
+        let start_pos = self.current_position();
 
-    fn parse_struct_definition(
-        &mut self,
-        _visibility: Visibility,
-        _start_pos: Position,
-    ) -> ParseResult<Stmt> {
-        todo!("Struct definition parsing")
+        // Consume override
+        self.consume(&TokenType::Override, "expected 'override'")?;
+
+        // Parse visibility after override
+        let visibility = self.parse_visibility()?;
+
+        // Parse other modifiers
+        let is_pure = self.match_token(&TokenType::Pure);
+        let is_async = self.match_token(&TokenType::Async);
+
+        // Now consume the 'fn' token
+        self.consume(&TokenType::Fn, "expected 'fn'")?;
+
+        let name = if let TokenType::Identifier(name) = &self.peek().token_type {
+            let name = name.clone();
+            self.advance();
+            name
+        } else {
+            return Err(ParseError::expected_token("method name", self.peek()));
+        };
+
+        // Parse generic parameters
+        let generics = self.parse_generic_params()?;
+
+        // Parse parameters
+        self.consume(&TokenType::LeftParen, "expected '(' after method name")?;
+        let params = if self.check(&TokenType::RightParen) {
+            vec![]
+        } else {
+            self.parse_comma_separated(|parser| parser.parse_parameter())?
+        };
+        self.consume(&TokenType::RightParen, "expected ')' after parameters")?;
+
+        // Parse return type
+        let return_type = if self.match_token(&TokenType::FunctionArrow) {
+            let ty = self.parse_type()?;
+            bolt_ast::TypeAnnotation::explicit(ty, self.current_span())
+        } else {
+            bolt_ast::TypeAnnotation::explicit(bolt_ast::Type::Unit, self.current_span())
+        };
+
+        // Parse body
+        let body = self.parse_block(|parser| {
+            let mut statements = vec![];
+            while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                statements.push(Box::new(parser.parse_statement()?));
+                parser.skip_trivia();
+            }
+
+            Ok(Stmt::Block {
+                statements,
+                span: parser.span_from(parser.current_position()),
+            })
+        })?;
+
+        let span = self.span_from(start_pos);
+
+        Ok(ClassMethod {
+            name,
+            is_pure,
+            is_async,
+            is_override: true,
+            generics,
+            params,
+            return_type,
+            body: Box::new(body),
+            visibility,
+            span,
+        })
+    }
+    /// Parse if statement: if condition : then_branch else : else_branch end
+    fn parse_if_statement(&mut self, start_pos: Position) -> ParseResult<Stmt> {
+        self.consume(&TokenType::If, "expected 'if'")?;
+
+        let condition = self.parse_expression()?;
+        self.consume(&TokenType::Colon, "expected ':' after if condition")?;
+
+        // Parse then branch statements (terminated by 'else' or 'end')
+        let mut then_statements = vec![];
+        while !self.check(&TokenType::Else) && !self.check(&TokenType::End) && !self.is_at_end() {
+            then_statements.push(Box::new(self.parse_statement()?));
+            self.skip_trivia();
+        }
+
+        // Convert statements to a single statement
+        let then_stmt = if then_statements.len() == 1 {
+            *then_statements.into_iter().next().unwrap()
+        } else {
+            Stmt::Block {
+                statements: then_statements,
+                span: self.span_from(start_pos),
+            }
+        };
+
+        let else_branch = if self.match_token(&TokenType::Else) {
+            if self.check(&TokenType::If) {
+                // else if - parse as another if statement
+                Some(Box::new(self.parse_if_statement(self.current_position())?))
+            } else {
+                // else block
+                self.consume(&TokenType::Colon, "expected ':' after else")?;
+
+                let mut else_statements = vec![];
+                while !self.check(&TokenType::End) && !self.is_at_end() {
+                    else_statements.push(Box::new(self.parse_statement()?));
+                    self.skip_trivia();
+                }
+
+                let else_stmt = if else_statements.len() == 1 {
+                    *else_statements.into_iter().next().unwrap()
+                } else {
+                    Stmt::Block {
+                        statements: else_statements,
+                        span: self.span_from(start_pos),
+                    }
+                };
+                Some(Box::new(else_stmt))
+            }
+        } else {
+            None
+        };
+
+        self.consume(&TokenType::End, "expected 'end' after if statement")?;
+        let span = self.span_from(start_pos);
+
+        Ok(Stmt::If {
+            condition: Box::new(condition),
+            then_branch: Box::new(then_stmt),
+            else_branch,
+            span,
+        })
     }
 
+    /// Parse enum definition: enum Name : Variant1 Variant2(Type) end
     fn parse_enum_definition(
         &mut self,
-        _visibility: Visibility,
-        _start_pos: Position,
+        visibility: Visibility,
+        start_pos: Position,
     ) -> ParseResult<Stmt> {
-        todo!("Enum definition parsing")
+        self.consume(&TokenType::Enum, "expected 'enum'")?;
+
+        // Parse enum name
+        let name = if let TokenType::Identifier(name) = &self.peek().token_type {
+            let name = name.clone();
+            self.advance();
+            name
+        } else {
+            return Err(ParseError::expected_token("enum name", self.peek()));
+        };
+
+        // Parse generic parameters (simplified)
+        let generics = vec![]; // TODO: self.parse_generic_params()?;
+
+        // Parse enum variants
+        let variants = self.parse_block(|parser| {
+            let mut variants = vec![];
+
+            while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                parser.skip_trivia();
+
+                if parser.check(&TokenType::End) {
+                    break;
+                }
+
+                let variant_start = parser.current_position();
+
+                let variant_name = if let TokenType::Identifier(name) = &parser.peek().token_type {
+                    let name = name.clone();
+                    parser.advance();
+                    name
+                } else {
+                    return Err(ParseError::expected_token("variant name", parser.peek()));
+                };
+
+                let data = if parser.match_token(&TokenType::LeftParen) {
+                    // Tuple variant: RGB(Int, Int, Int)
+                    let types = if parser.check(&TokenType::RightParen) {
+                        vec![]
+                    } else {
+                        parser.parse_comma_separated(|p| p.parse_type())?
+                    };
+                    parser.consume(&TokenType::RightParen, "expected ')' after variant types")?;
+                    EnumVariantData::Tuple(types)
+                } else if parser.match_token(&TokenType::LeftBrace) {
+                    // Struct variant: Point { x: Int, y: Int }
+                    let fields = if parser.check(&TokenType::RightBrace) {
+                        vec![]
+                    } else {
+                        parser.parse_comma_separated(|p| {
+                            let field_start = p.current_position();
+                            let field_name =
+                                if let TokenType::Identifier(name) = &p.peek().token_type {
+                                    let name = name.clone();
+                                    p.advance();
+                                    name
+                                } else {
+                                    return Err(ParseError::expected_token("field name", p.peek()));
+                                };
+
+                            let type_annotation = p.parse_type_annotation()?;
+                            let field_span = p.span_from(field_start);
+
+                            Ok(StructField {
+                                name: field_name,
+                                type_annotation,
+                                visibility: Visibility::Public,
+                                span: field_span,
+                            })
+                        })?
+                    };
+                    parser.consume(&TokenType::RightBrace, "expected '}' after variant fields")?;
+                    EnumVariantData::Struct(fields)
+                } else {
+                    // Unit variant: Red
+                    EnumVariantData::Unit
+                };
+
+                let variant_span = parser.span_from(variant_start);
+
+                variants.push(EnumVariant {
+                    name: variant_name,
+                    data,
+                    span: variant_span,
+                });
+            }
+
+            Ok(variants)
+        })?;
+
+        let span = self.span_from(start_pos);
+
+        Ok(Stmt::EnumDef {
+            name,
+            generics,
+            variants,
+            visibility,
+            span,
+        })
+    }
+    /// Parse struct definition: struct Name : field1 :: Type field2 :: Type end
+    fn parse_struct_definition(
+        &mut self,
+        visibility: Visibility,
+        start_pos: Position,
+    ) -> ParseResult<Stmt> {
+        self.consume(&TokenType::Struct, "expected 'struct'")?;
+
+        // Parse struct name
+        let name = if let TokenType::Identifier(name) = &self.peek().token_type {
+            let name = name.clone();
+            self.advance();
+            name
+        } else {
+            return Err(ParseError::expected_token("struct name", self.peek()));
+        };
+
+        // Parse generic parameters (simplified)
+        let generics = vec![]; // TODO: self.parse_generic_params()?;
+
+        // Parse struct fields
+        let fields = self.parse_block(|parser| {
+            let mut fields = vec![];
+
+            while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                parser.skip_trivia();
+
+                if parser.check(&TokenType::End) {
+                    break;
+                }
+
+                let field_start = parser.current_position();
+                let field_visibility = parser.parse_visibility()?; // Struct fields are public by default
+
+                let mutable = parser.match_token(&TokenType::Mut);
+
+                let field_name = if let TokenType::Identifier(name) = &parser.peek().token_type {
+                    let name = name.clone();
+                    parser.advance();
+                    name
+                } else {
+                    return Err(ParseError::expected_token("field name", parser.peek()));
+                };
+
+                let type_annotation = parser.parse_type_annotation()?;
+
+                let _accessors = if parser.match_token(&TokenType::LeftBrace) {
+                    // HACK: Skipping accessor parsing for now, just consume until }
+                    while !parser.check(&TokenType::RightBrace) && !parser.is_at_end() {
+                        parser.advance();
+                    }
+                    parser.consume(&TokenType::RightBrace, "expected '}' after accessors")?;
+                    true
+                } else {
+                    false
+                };
+
+                let field_span = parser.span_from(field_start);
+
+                fields.push(StructField {
+                    name: field_name,
+                    type_annotation,
+                    visibility: field_visibility,
+                    span: field_span,
+                });
+            }
+
+            Ok(fields)
+        })?;
+
+        let span = self.span_from(start_pos);
+
+        Ok(Stmt::StructDef {
+            name,
+            generics,
+            fields,
+            visibility,
+            span,
+        })
     }
 
+    /// Parse trait definition: trait Name : fn method() -> Type end
     fn parse_trait_definition(
         &mut self,
-        _visibility: Visibility,
-        _start_pos: Position,
+        visibility: Visibility,
+        start_pos: Position,
     ) -> ParseResult<Stmt> {
-        todo!("Trait definition parsing")
+        self.consume(&TokenType::Trait, "expected 'trait'")?;
+
+        // Parse trait name
+        let name = if let TokenType::Identifier(name) = &self.peek().token_type {
+            let name = name.clone();
+            self.advance();
+            name
+        } else {
+            return Err(ParseError::expected_token("trait name", self.peek()));
+        };
+
+        // Parse generic parameters (simplified)
+        let generics = vec![]; // TODO: self.parse_generic_params()?;
+
+        // Parse supertraits (simplified)
+        let supertraits = vec![]; // TODO: Parse : SuperTrait1 + SuperTrait2
+
+        // Parse trait body
+        let body = self.parse_block(|parser| {
+            let mut methods = vec![];
+
+            while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                parser.skip_trivia();
+
+                if parser.check(&TokenType::End) {
+                    break;
+                }
+
+                // Parse trait method
+                let method_start = parser.current_position();
+
+                parser.consume(&TokenType::Fn, "expected 'fn' in trait method")?;
+
+                let method_name = if let TokenType::Identifier(name) = &parser.peek().token_type {
+                    let name = name.clone();
+                    parser.advance();
+                    name
+                } else {
+                    return Err(ParseError::expected_token("method name", parser.peek()));
+                };
+
+                // Parse parameters (including &self)
+                parser.consume(&TokenType::LeftParen, "expected '(' after method name")?;
+                let params = if parser.check(&TokenType::RightParen) {
+                    vec![]
+                } else {
+                    // Simple parameter parsing - handle &self specially
+                    let mut params = vec![];
+
+                    // Check for &self parameter
+                    if parser.match_token(&TokenType::Ampersand) {
+                        if let TokenType::Identifier(name) = &parser.peek().token_type {
+                            if name == "self" {
+                                parser.advance(); // consume 'self'
+                                // Skip &self for now, don't add to params
+
+                                if parser.match_token(&TokenType::Comma) {
+                                    // Parse remaining parameters
+                                    params =
+                                        parser.parse_comma_separated(|p| p.parse_parameter())?;
+                                }
+                            }
+                        }
+                    } else {
+                        params = parser.parse_comma_separated(|p| p.parse_parameter())?;
+                    }
+
+                    params
+                };
+                parser.consume(&TokenType::RightParen, "expected ')' after parameters")?;
+
+                // Parse return type
+                let return_type = if parser.match_token(&TokenType::FunctionArrow) {
+                    let ty = parser.parse_type()?;
+                    bolt_ast::TypeAnnotation::explicit(ty, parser.current_span())
+                } else {
+                    bolt_ast::TypeAnnotation::explicit(bolt_ast::Type::Unit, parser.current_span())
+                };
+
+                // No default body for trait methods (for now)
+                let default_body = None;
+
+                let method_span = parser.span_from(method_start);
+
+                methods.push(TraitMethod {
+                    name: method_name,
+                    generics: vec![], // TODO: parse method generics
+                    params,
+                    return_type,
+                    default_body,
+                    span: method_span,
+                });
+            }
+
+            Ok(TraitBody { methods })
+        })?;
+
+        let span = self.span_from(start_pos);
+
+        Ok(Stmt::TraitDef {
+            name,
+            generics,
+            supertraits,
+            body,
+            visibility,
+            span,
+        })
+    }
+    /// Parse implementation block: impl TraitName for TypeName : ... end
+    fn parse_impl_block(&mut self, start_pos: Position) -> ParseResult<Stmt> {
+        self.consume(&TokenType::Impl, "expected 'impl'")?;
+        eprintln!(
+            "DEBUG: After consuming 'impl', current token: {:?}",
+            self.peek().token_type
+        );
+
+        // Parse first identifier
+        let first_name = if let TokenType::Identifier(name) = &self.peek().token_type {
+            let name = name.clone();
+            eprintln!("DEBUG: Parsing first name: {}", name);
+            self.advance();
+            eprintln!(
+                "DEBUG: After first name, current token: {:?}",
+                self.peek().token_type
+            );
+            name
+        } else {
+            return Err(ParseError::expected_token(
+                "trait or type name",
+                self.peek(),
+            ));
+        };
+
+        let (trait_name, type_name) = if self.match_token(&TokenType::For) {
+            eprintln!("DEBUG: Matched 'for' token");
+            // impl Trait for Type
+            let type_name = if let TokenType::Identifier(name) = &self.peek().token_type {
+                let name = name.clone();
+                eprintln!("DEBUG: Parsing type name: {}", name);
+                self.advance();
+                eprintln!(
+                    "DEBUG: After type name, current token: {:?}",
+                    self.peek().token_type
+                );
+                name
+            } else {
+                return Err(ParseError::expected_token("type name", self.peek()));
+            };
+            (Some(first_name), type_name)
+        } else {
+            eprintln!("DEBUG: No 'for' found, treating as inherent impl");
+            (None, first_name)
+        };
+
+        eprintln!(
+            "DEBUG: About to call parse_block, current token: {:?}",
+            self.peek().token_type
+        );
+
+        // Parse generic parameters (simplified)
+        let generics = vec![]; // TODO: self.parse_generic_params()?;
+
+        // Parse impl body
+        let body = self.parse_block(|parser| {
+            let mut items = vec![];
+
+            while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                parser.skip_trivia();
+
+                if parser.check(&TokenType::End) {
+                    break;
+                }
+
+                // Parse visibility for impl methods
+                let visibility = parser.parse_visibility()?;
+
+                // For now, only handle method implementations
+                if parser.match_token(&TokenType::Fn) {
+                    // Parse method similar to class method but simpler
+                    let method = parser.parse_impl_method(visibility)?;
+                    items.push(ImplItem::Method(method));
+                } else {
+                    return Err(ParseError::invalid_statement(
+                        "expected method in impl block",
+                        parser.current_span(),
+                    ));
+                }
+            }
+
+            Ok(items)
+        })?;
+
+        let span = self.span_from(start_pos);
+
+        Ok(Stmt::ImplBlock {
+            trait_name,
+            type_name,
+            generics,
+            body,
+            span,
+        })
     }
 
-    fn parse_impl_block(&mut self, _start_pos: Position) -> ParseResult<Stmt> {
-        todo!("Implementation block parsing")
+    /// Parse implementation method
+    fn parse_impl_method(&mut self, visibility: Visibility) -> ParseResult<ClassMethod> {
+        let start_pos = self.current_position();
+
+        let name = if let TokenType::Identifier(name) = &self.peek().token_type {
+            let name = name.clone();
+            self.advance();
+            name
+        } else {
+            return Err(ParseError::expected_token("method name", self.peek()));
+        };
+
+        // Parse parameters (including &self)
+        self.consume(&TokenType::LeftParen, "expected '(' after method name")?;
+        let params = if self.check(&TokenType::RightParen) {
+            vec![]
+        } else {
+            // Simple parameter parsing - handle &self specially
+            let mut params = vec![];
+
+            // Check for &self parameter
+            if self.match_token(&TokenType::Ampersand) {
+                if let TokenType::Identifier(name) = &self.peek().token_type {
+                    if name == "self" {
+                        self.advance(); // consume 'self'
+                        // Skip &self for now, don't add to params
+
+                        if self.match_token(&TokenType::Comma) {
+                            // Parse remaining parameters
+                            params = self.parse_comma_separated(|p| p.parse_parameter())?;
+                        }
+                    }
+                }
+            } else {
+                params = self.parse_comma_separated(|p| p.parse_parameter())?;
+            }
+
+            params
+        };
+        self.consume(&TokenType::RightParen, "expected ')' after parameters")?;
+
+        // Parse return type
+        let return_type = if self.match_token(&TokenType::FunctionArrow) {
+            let ty = self.parse_type()?;
+            bolt_ast::TypeAnnotation::explicit(ty, self.current_span())
+        } else {
+            bolt_ast::TypeAnnotation::explicit(bolt_ast::Type::Unit, self.current_span())
+        };
+
+        // Parse body
+        let body = self.parse_block(|parser| {
+            let mut statements = vec![];
+            while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                statements.push(Box::new(parser.parse_statement()?));
+                parser.skip_trivia();
+            }
+
+            Ok(Stmt::Block {
+                statements,
+                span: parser.span_from(parser.current_position()),
+            })
+        })?;
+
+        let span = self.span_from(start_pos);
+
+        Ok(ClassMethod {
+            name,
+            is_pure: false,
+            is_async: false,
+            is_override: false,
+            generics: vec![],
+            params,
+            return_type,
+            body: Box::new(body),
+            visibility,
+            span,
+        })
     }
 
     fn parse_module_definition(
@@ -537,22 +1169,98 @@ impl Parser {
         todo!("Module definition parsing")
     }
 
+    /// Parse import statement: import ModuleName, import ModuleName::{Item1, Item2}
     fn parse_import_statement(
         &mut self,
-        _visibility: Visibility,
-        _start_pos: Position,
+        visibility: Visibility,
+        start_pos: Position,
     ) -> ParseResult<Stmt> {
-        todo!("Import statement parsing")
-    }
+        self.consume(&TokenType::Import, "expected 'import'")?;
 
-    fn parse_if_statement(&mut self, _start_pos: Position) -> ParseResult<Stmt> {
-        todo!("If statement parsing")
-    }
+        // Parse module name
+        let module_name = if let TokenType::Identifier(name) = &self.peek().token_type {
+            let name = name.clone();
+            self.advance();
+            name
+        } else {
+            return Err(ParseError::expected_token("module name", self.peek()));
+        };
 
-    fn parse_loop_statement(&mut self, _start_pos: Position) -> ParseResult<Stmt> {
-        todo!("Loop statement parsing")
-    }
+        let path = if self.match_token(&TokenType::DoubleColon) {
+            // Check for specific import syntax
+            if self.match_token(&TokenType::LeftBrace) {
+                // Multiple imports: Module::{Item1, Item2}
+                let items = self.parse_comma_separated(|parser| {
+                    if let TokenType::Identifier(name) = &parser.peek().token_type {
+                        let name = name.clone();
+                        parser.advance();
+                        Ok(name)
+                    } else {
+                        Err(ParseError::expected_token(
+                            "import item name",
+                            parser.peek(),
+                        ))
+                    }
+                })?;
 
+                self.consume(&TokenType::RightBrace, "expected '}' after import items")?;
+                ImportPath::Multiple(module_name, items)
+            } else if let TokenType::Identifier(item_name) = &self.peek().token_type {
+                // Single nested import: Module::Item
+                let item_name = item_name.clone();
+                self.advance();
+                ImportPath::Nested(module_name, item_name)
+            } else {
+                return Err(ParseError::expected_token("import item", self.peek()));
+            }
+        } else {
+            // Simple import: Module
+            ImportPath::Simple(module_name)
+        };
+
+        // Parse optional alias (not implemented)
+        let alias = None;
+
+        let span = self.span_from(start_pos);
+
+        Ok(Stmt::Import {
+            path,
+            alias,
+            visibility,
+            span,
+        })
+    }
+    /// Parse loop statement: while cond : body end, loop collection : body end, etc.
+    fn parse_loop_statement(&mut self, start_pos: Position) -> ParseResult<Stmt> {
+        if self.match_token(&TokenType::Loop) {
+            // While loop: while condition : body end
+            let condition = self.parse_expression()?;
+
+            let body = self.parse_block(|parser| {
+                let mut statements = vec![];
+                while !parser.check(&TokenType::End) && !parser.is_at_end() {
+                    statements.push(Box::new(parser.parse_statement()?));
+                    parser.skip_trivia();
+                }
+
+                Ok(Stmt::Block {
+                    statements,
+                    span: parser.span_from(parser.current_position()),
+                })
+            })?;
+
+            let span = self.span_from(start_pos);
+
+            Ok(Stmt::Loop {
+                kind: LoopKind::While(Box::new(condition)),
+                body: Box::new(body),
+                span,
+            })
+        } else {
+            // TODO: Implement other loop types
+            Err(ParseError::expected_token("'while' loop", self.peek()))
+        }
+    }
     fn parse_match_statement(&mut self, _start_pos: Position) -> ParseResult<Stmt> {
         todo!("Match statement parsing")
     }
@@ -705,5 +1413,13 @@ mod tests {
         } else {
             panic!("Expected function with parameters");
         }
+    }
+
+    #[test]
+    fn test_init_token() {
+        let mut lexer = Lexer::new("init");
+        let tokens = lexer.tokenize().unwrap();
+        println!("Init token: {:?}", tokens[0].token_type);
+        assert!(matches!(tokens[0].token_type, TokenType::Init));
     }
 }

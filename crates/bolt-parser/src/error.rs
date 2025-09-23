@@ -199,6 +199,15 @@ pub struct DetailedError {
 }
 
 impl ParseError {
+    // Create a invalid pattern error
+    pub fn invalid_pattern(message: &str, span: Span) -> Self {
+        Self::InvalidPattern {
+            message: message.to_string(),
+            span,
+            line: span.start.line,
+            column: span.start.column,
+        }
+    }
     /// Create an invalid visibility error
     pub fn invalid_visibility(message: &str, span: Span) -> Self {
         Self::InvalidVisibility {
