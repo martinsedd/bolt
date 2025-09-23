@@ -7,6 +7,7 @@ members = [
   "crates/bolt-types",
   "crates/bolt-codegen",
   "crates/bolt-cli",
+  "crates/bolt-semantic",
 ]
 
 [workspace.dependencies]
@@ -20,6 +21,7 @@ clap = "4.5.47"
 anyhow = "1.0.99"
 thiserror = "2.0.16"
 serde = { version = "1.0.225", features = ["derive"] }
+indexmap = { version = "2.0", features = ["serde"] }
 
 [profile.dev]
 debug = true

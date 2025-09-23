@@ -1,0 +1,12 @@
+[package]
+name = "bolt-semantic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bolt-ast = { path = "../bolt-ast" }
+bolt-lexer = { path = "../bolt-lexer" }
+bolt-parser = { path = "../bolt-parser" }
+thiserror.workspace = true
+serde.workspace = true
+indexmap.workspace = true
